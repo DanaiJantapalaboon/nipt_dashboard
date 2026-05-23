@@ -1,0 +1,28 @@
+:root {
+    --gmc-color: #663695;
+    --gmc-background: #EAE4EA;
+    --gmc-darker-color: #351c4f;
+    --gmc-color-lighter: #f1e5ff;
+    --gmc-color-gradient: linear-gradient(90deg, rgba(0, 0, 0, 1) 0%, var(--gmc-color) 100%);
+    --background: rgb(241, 245, 249);
+    --male-color: rgb(54, 162, 235, 0.7);
+    --female-color: rgb(255, 99, 132, 0.7);
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: "Kanit", sans-serif;
+    font-weight: 300;
+    font-style: normal;
+    background-color: var(--background);
+}
+
+select:hover {
+    background-color: var(--gmc-color-lighter);
+    transition: 0.5s;
+}
