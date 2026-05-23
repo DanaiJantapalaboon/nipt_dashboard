@@ -47,10 +47,13 @@
                         <a class="nav-link me-2" href="index.php">Home</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link me-2" href="halos.php">Patient Info</a>
+                        <a class="nav-link me-2" href="halos.php">Maternal Data</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link me-2 active" aria-current="page" href="#">HALOS</a>
+                        <a class="nav-link me-2 active" aria-current="page" href="#">Platform Performance</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link me-2" href="#">About</a>
                     </li>
                 </ul>
                 <div class="text-white">

@@ -27,16 +27,12 @@
             FROM result_info";
 
     $stmt = $pdo->query($sql);
-    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    $rows = $stmt->fetch(PDO::FETCH_ASSOC);
 
     // 2. Extract counts (default to 0 if null)
-    $twins_count = $row['twins'] ?? 0;
-    $singleton_count = $row['singleton'] ?? 0;
-
-    // 3. Calculate Total and Percentages
-    $total = $twins_count + $singleton_count;
-    $twins_percent = ($twins_count / $total) * 100;
-    $singleton_percent = ($singleton_count / $total) * 100;
+    $twins_count = (int)($rows['twins'] ?? 0);
+    $singleton_count = (int)($rows['singleton'] ?? 0);
+    
 
     // --- DATASET 1: Male ---
     $sql_male = "SELECT 
@@ -266,10 +262,13 @@ ORDER BY
                         <a class="nav-link me-2 active" aria-current="page" href="index.php">Home</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link me-2" href="#">Patient Info</a>
+                        <a class="nav-link me-2" href="#">Maternal Data</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link me-2" href="halos.php">HALOS</a>
+                        <a class="nav-link me-2" href="halos.php">Platform Performance</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link me-2" href="#">About</a>
                     </li>
                 </ul>
                 <div class="text-white">
@@ -432,22 +431,6 @@ ORDER BY
                     </div>
                 </div>
             </div>
-            <!-- <div class="col">
-                <div class="card border-start border-0 border-3 border-info shadow-sm">
-                    <div class="d-flex align-items-center justify-content-between p-3">
-                        <div>
-                            <p class="mb-0 text-secondary">Singleton / Twins</p>
-                            <h3 class="my-1 text-info"><?php echo $singleton_count.' / '. $twins_count; ?></h3>
-                            <p class="mb-0 text-success"><i class="fa-solid fa-arrow-trend-up" style="color: rgb(99, 230, 190);"></i> <?php 
-  //echo number_format($singleton_percent, 2) . '% / ' . number_format($twins_percent, 2) . '%'; 
-?></p>
-                        </div>
-                        <div>
-                            <i class="fa-solid fa-user fa-2xl" style="color: rgb(116, 192, 252);"></i>
-                        </div>
-                    </div>
-                </div>
-            </div> -->
         </div>
     </section>
 
@@ -467,7 +450,7 @@ ORDER BY
                             <th scope="col" class="fw-light text-center">%</th>
                             <th scope="col" class="fw-light text-center">Female</th>
                             <th scope="col" class="fw-light text-center">%</th>
-                            <th scope="col" class="fw-light text-center">Total</th>
+                            <th scope="col" class="fw-light text-center"><i>N</i></th>
                             <th scope="col" class="fw-light text-center">Ratio</th>
                         </tr>
                     </thead>
@@ -548,12 +531,12 @@ ORDER BY
                 <canvas id="ageDistributionChart"></canvas>
             </div>
             <div class="col-md-6">
-                <p><b>Table 2. </b>DMSc-NIPT Maternal Age Distribution</p>
+                <p><b>Table 2. </b>Maternal Age Distribution</p>
                 <table class="table table-sm table-hover" style="--bs-table-bg: transparent;">
                     <thead class="table-light">
                         <tr>
                             <th scope="col" class="fw-light">Age Groups</th>
-                            <th scope="col" class="fw-light text-center">Counts</th>
+                            <th scope="col" class="fw-light text-center"><i>N</i></th>
                             <th scope="col" class="fw-light text-center">%</th>
                             <th scope="col" class="fw-light text-center">Mean</th>
                             <th scope="col" class="fw-light text-center">Median</th>
@@ -579,6 +562,42 @@ ORDER BY
                                 echo "</tr>";
                             }
                         ?>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </section>
+
+
+    <section class="container mt-3">
+        <div class="row">
+            <div class="col-md-6 mx-auto" style="max-width: 400px;">
+                <canvas id="gestationTypePieChart"></canvas>
+            </div>
+            <div class="col-md-6">
+                <p><b>Table 3. </b>Maternal Gestation Type</p>
+                <table class="table table-sm table-hover" style="--bs-table-bg: transparent;">
+                    <thead class="table-light">
+                        <tr>
+                            <th scope="col" class="fw-light">Gestation Type</th>
+                            <th scope="col" class="fw-light text-center"><i>N</i></th>
+                            <th scope="col" class="fw-light text-center">%</th>
+                            <th scope="col" class="fw-light text-center">Ratio</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td class="text-secondary">Singleton</td>
+                            <td class="text-secondary text-center"><?php echo $singleton_count; ?></td>
+                            <td class="text-secondary text-center"><?php echo round($singleton_count / ($singleton_count + $twins_count)*100, 2); ?></td>
+                            <td class="text-secondary text-center">1 : <?php echo round(($singleton_count + $twins_count) / $singleton_count, 0); ?></td>
+                        </tr>
+                        <tr>
+                            <td class="text-secondary">Twins</td>
+                            <td class="text-secondary text-center"><?php echo $twins_count; ?></td>
+                            <td class="text-secondary text-center"><?php echo round($twins_count / ($singleton_count + $twins_count)*100, 2); ?></td>
+                            <td class="text-secondary text-center">1 : <?php echo round(($singleton_count + $twins_count) / $twins_count, 0); ?></td>
+                        </tr>
                     </tbody>
                 </table>
             </div>
@@ -659,11 +678,11 @@ document.addEventListener("DOMContentLoaded", function() {
     new Chart(ctx, {
         type: 'bar', 
         data: {
-            labels: ageLabels, // Ages line up cleanly on the X-axis
+            labels: ageLabels,
             datasets: [{
                 label: 'Maternal Counts',
-                data: distributionData, // Heights of the bars show density
-                backgroundColor: 'rgba(75, 192, 192, 0.6)', // Clean teal fill
+                data: distributionData,
+                backgroundColor: 'rgba(75, 192, 192, 0.6)',
                 borderColor: 'rgba(75, 192, 192, 1)',
                 borderWidth: 1,
                 barPercentage: 0.9,  // Slightly widens bars to resemble a classic histogram
@@ -675,7 +694,7 @@ document.addEventListener("DOMContentLoaded", function() {
             plugins: {
                 title: {
                     display: true,
-                    text: 'DMSc-NIPT Bell Curve of Maternal Age Distribution',
+                    text: 'DMSc-NIPT Maternal Age Distribution',
                     font: { size: 14, weight: 'bold' }
                 },
                 legend: { display: false } // Hide legend since it's a single tracking dataset
@@ -700,6 +719,65 @@ document.addEventListener("DOMContentLoaded", function() {
 });
 
 </script>
+
+
+
+
+<script type="module">
+
+document.addEventListener("DOMContentLoaded", function() {
+    const twins = <?php echo json_encode($twins_count); ?>;
+    const singleton = <?php echo json_encode($singleton_count); ?>;
+
+    const ctx = document.getElementById('gestationTypePieChart');
+    if (!ctx) return;
+
+    new Chart(ctx, {
+        type: 'pie',
+        data: {
+            labels: ['Twins', 'Singleton'],
+            datasets: [{
+                data: [twins, singleton],
+                backgroundColor: [
+                    'rgba(255, 206, 86, 0.7)',
+                    'rgba(153, 102, 255, 0.7)'
+                ],
+                borderColor: [
+                    'rgba(255, 206, 86, 1)',
+                    'rgba(153, 102, 255, 1)'
+                ],
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                title: {
+                    display: true,
+                    text: 'DMSc-NIPT Gestation Type Screening',
+                    font: { size: 14, weight: 'bold' }
+                },
+                legend: {
+                    position: 'bottom' // Moves the labels below the chart for a cleaner look
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const value = context.raw;
+                            const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                            const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+                            return ` ${context.label}: ${value} cases (${percentage}%)`;
+                        }
+                    }
+                }
+            }
+        }
+    });
+});
+
+    
+</script>
+
 
     
 </body>
