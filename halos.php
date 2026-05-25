@@ -15,6 +15,34 @@
     // Total Sample
     $stmt = $pdo->query("SELECT COUNT(Sample_QC) FROM mlsi_nipt.result_halos WHERE Sample_QC = 'Fail' AND Patient_Name NOT IN ('Positive Control', 'Negative Control')");
     $fail_count = $stmt->fetchColumn();
+
+
+
+    $sql_fail = "SELECT 
+                RUN,
+                COUNT(*) AS total_samples,
+                SUM(CASE WHEN Sample_QC = 'Fail' THEN 1 ELSE 0 END) AS fail_count,
+                ROUND(
+                    (SUM(CASE WHEN Sample_QC = 'Fail' THEN 1 ELSE 0 END) / COUNT(*)) * 100,
+                    2
+                ) AS fail_percent
+            FROM mlsi_nipt.result_halos
+            GROUP BY RUN
+            ORDER BY RUN ASC"; // Ordered chronologically/sequentially for a smooth line flow
+
+    $stmt = $pdo->query($sql_fail);
+    $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    // 2. Prepare arrays for the Line Chart
+    $run_labels = [];
+    $fail_counts = [];
+
+    foreach ($rows as $row) {
+        $run_labels[] = $row['RUN'];
+        $fail_counts[] = (int)($row['fail_count'] ?? 0);
+    }
+
+
 ?>
 
 <!DOCTYPE html>
@@ -105,7 +133,7 @@
 
     <section class="container mt-4">
         <div class="row">
-            <div class="col-md-2">
+            <div class="col-md-3">
                 <label for="exampleDataList" class="form-label small">Select RUN<span class="text-danger"> *</span></label>
                 <select class="form-select form-select-sm fw-light" id="exampleDataList" name="" required>
                     <option value="" selected disabled>...</option>
@@ -202,28 +230,64 @@
                     </div>
                 </div>
             </div>
-            <div class="col">
-                <div class="card border-start border-0 border-3 border-info shadow-sm">
-                    <div class="d-flex align-items-center justify-content-between p-3">
-                        <div>
-                            <p class="mb-0 text-secondary">Maternal Average BMI</p>
-                            <h3 class="my-1 text-info"><?php //echo ; ?></h3>
-                            <p class="mb-0 text-success"><i class="fa-solid fa-arrow-trend-up" style="color: rgb(99, 230, 190);"></i> +2.5% from last week</p>
-                        </div>
-                        <div>
-                            <img src="img/icon/obesity.png" style="height: 60px;" alt="">
-                        </div>
-                    </div>
-                </div>
+        </div>
+    </section>
+
+
+
+
+    <section class="container mt-3">
+        <div class="row">
+            <div class="col-md-9 mx-auto">
+                <canvas id="runFailureChart"></canvas>
+            </div>
+            <div class="col-md-3">
+                <p><b>Table 1. </b>Fail Rate per RUN</p>
+                <table class="table table-hover table-sm display compact small" style="--bs-table-bg: transparent;">
+                    <thead class="table-light">
+                        <tr>
+                            <th scope="col" class="fw-light text-center">Rank</th>
+                            <th scope="col" class="fw-light text-center">Samples</th>
+                            <th scope="col" class="fw-light text-center"><i>N</i></th>
+                            <th scope="col" class="fw-light text-center">%</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    <?php
+                        $limit = 15;
+                        $counter = 0;
+                        foreach (array_reverse($rows) as $row): 
+                            if ($counter >= $limit) {
+                                break;
+                            }
+                            $run = $row['RUN'];
+                            $total = (int)$row['total_samples'];
+                            $fail = (int)$row['fail_count'];
+                            $percent = (float)$row['fail_percent'];
+                            $counter++;
+                    ?>
+                    <tr>
+                        <td class="text-secondary text-center"><?php echo $run; ?></td>
+                        <td class="text-secondary text-center"><?php echo number_format($total); ?></td>
+                        <td class="text-secondary text-center"><?php echo number_format($fail); ?></td>
+                        <td class="text-secondary text-center text-danger"><?php echo number_format($percent, 2); ?> %</td>
+                    </tr>
+                    <?php endforeach; ?>
+                    </tbody>
+                </table>
             </div>
         </div>
     </section>
 
 
 
+
+
+
+
 <section class="container bg-white shadow-sm rounded">
     <div class="table-responsive py-2">
-        <table class="table table-hover table-striped display compact small css-serial" id="myTable">
+        <table class="table table-hover table-striped display compact small" id="myTable2">
             <thead>
                 <tr>
                     <th class="fw-light text-center" scope="col">RUN</th>
@@ -276,14 +340,85 @@
 
 
 <script>
-    var table = $('#myTable').DataTable({
+    var table2 = $('#myTable2').DataTable({
                     'paging': true,
                     pageLength: 100
                 });
 
-    var length = table.rows().count();;
+    var length = table2.rows().count();;
     document.getElementById("rowcount").innerHTML = '(' + length + ' Items)';
 </script>
+
+
+<script type="module">
+
+
+document.addEventListener("DOMContentLoaded", function() {
+    // 3. Extract mapped database metrics safely via json_encode
+    const chartLabels = <?php echo json_encode($run_labels); ?>;
+    const chartDataValues = <?php echo json_encode($fail_counts); ?>;
+
+    const ctx = document.getElementById('runFailureChart');
+    if (!ctx) return;
+
+    // 4. Initialize Line Chart
+    new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: chartLabels,
+            datasets: [{
+                label: 'Fail Count',
+                data: chartDataValues,
+                backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                borderColor: 'rgba(255, 99, 132, 1)',
+                borderWidth: 2,
+                tension: 0.2,
+                pointBackgroundColor: 'rgba(255, 99, 132, 1)',
+                pointRadius: 3,
+                pointHoverRadius: 5,
+                fill: true
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                title: {
+                    display: true,
+                    text: 'DMSc-NIPT Sequencing Run Quality Tracking (Sample Failures)',
+                    font: { size: 14, weight: 'bold' }
+                },
+                legend: {
+                    display: false
+                }
+            },
+            scales: {
+                x: {
+                    title: {
+                        display: true,
+                        text: 'RUN Identifier'
+                    }
+                },
+                y: {
+                    beginAtZero: true,
+                    max: 40,
+                    title: {
+                        display: true,
+                        text: 'Number of Failed Samples'
+                    },
+                    ticks: {
+                        stepSize: 1 // Forces clean whole integer intervals on case volumes
+                    }
+                }
+            }
+        }
+    });
+});
+
+
+</script>
+
+
+
     
 </body>
 </html>

@@ -225,6 +225,30 @@ ORDER BY
     $stmt_agedist = $pdo->query($sql_agedist);
     $row_age = $stmt_agedist->fetch(PDO::FETCH_ASSOC);
 
+
+
+
+// 1. Fetch the top 15 institutes sorted by count
+$sql_institute = "SELECT institute, COUNT(institute) AS institute_count 
+        FROM mlsi_nipt.result_info 
+        GROUP BY institute 
+        ORDER BY institute_count DESC 
+        LIMIT 12";
+
+$stmt = $pdo->query($sql_institute);
+$rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+// 2. Separate into unique arrays for Chart.js labels and data values
+$institutes = [];
+$counts_institute = [];
+
+foreach ($rows as $row) {
+    // Fallback to 'Unknown' if the institute field happens to be blank/null
+    $institutes[] = $row['institute'] ?? 'Unknown';
+    $counts_institute[] = (int)($row['institute_count'] ?? 0);
+}
+
+
 ?>
 
 <!DOCTYPE html>
@@ -236,23 +260,15 @@ ORDER BY
 
     <link rel="stylesheet" href="assets/bootstrap.min.css">
     <link rel="stylesheet" href="css/main.css">
+    <script src="assets/jquery.min.js"></script>
     <script src="assets/chart.umd.min.js"></script>
     <script src="assets/bootstrap.bundle.min.js"></script>
-    <script src="assets/jquery.min.js"></script>
 </head>
 <body>
 
 
     <nav class="navbar navbar-expand-lg navbar-dark shadow-sm">
         <div class="container">
-            <!-- <a class="navbar-brand" href="#">
-                <img src="/docs/5.3/assets/brand/bootstrap-logo.svg" width="30" height="24" class="d-inline-block align-text-top">
-                Bootstrap
-            </a> -->
-            <!-- <a class="navbar-brand d-flex align-items-center" href="#">
-                <img src="img/logo/logo_dmsc.png" alt="DMSc" class="me-3 d-inline-block align-text-top" style="height:44px;">
-                <img src="img/logo/logo_gmc.png" alt="GMC" class="me-3 d-inline-block align-text-top" style="height:39px;">
-            </a> -->
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarTogglerDemo02" aria-controls="navbarTogglerDemo02" aria-expanded="false" aria-label="Toggle navigation">
                 <span class="navbar-toggler-icon"></span>
             </button>
@@ -333,27 +349,19 @@ ORDER BY
                 ?>
                 </datalist>
             </div>
-            <div class="col-md-2">
+            <div class="col-md-3">
                 <label for="exampleDataList" class="form-label small">Select RUN<span class="text-danger"> *</span></label>
-                <select class="form-select form-select-sm fw-light" id="exampleDataList" name="" required>
-                    <option value="" selected disabled>...</option>
+                <input class="form-control form-control-sm fw-light" list="datalistOptions2" id="exampleDataList" name="" placeholder="..." required>
+                <datalist id="datalistOptions2">
                 <?php
                     $stmt = $pdo->query("SELECT DISTINCT RUN FROM result_info");
                     foreach ($stmt as $row):
                         echo '<option class="fw-light" value="' . $row['RUN'] . '">' . $row['RUN'] . '</option>';
                     endforeach;
                 ?>
-                </select>
+                </datalist>
             </div>
-            <div class="col-md-2">
-                <label for="exampleDataList" class="form-label small">Pregnancy Type<span class="text-danger"> *</span></label>
-                <select class="form-select form-select-sm fw-light" id="exampleDataList" name="" required>
-                    <option value="" selected disabled>...</option>
-                    <option value="ครรภ์เดี่ยว" class="fw-light">Singleton</option>
-                    <option value="ครรภ์แฝด" class="fw-light">Twins</option>
-                </select>
-            </div>
-            <div class="col-md-2">
+            <div class="col-md-3">
                 <label for="exampleDataList" class="form-label small">Fetal Gender<span class="text-danger"> *</span></label>
                 <select class="form-select form-select-sm" id="exampleDataList" name="" required>
                     <option value="" selected disabled>...</option>
@@ -366,7 +374,7 @@ ORDER BY
                 <!-- <button type="submit" name="" class="btn btn-sm btn-gmc w-100">ค้นหา</button> -->
                 <div class="btn-group w-100" role="group" aria-label="Basic example">
                     <button type="submit" class="btn btn-sm btn-gmc w-75">Search</button>
-                    <button type="submit" class="btn btn-sm btn-dark w-25">Reset</button>
+                    <button type="reset" class="btn btn-sm btn-dark w-25">Reset</button>
                 </div>
             </div>
         </div>
@@ -506,7 +514,7 @@ ORDER BY
                             <td class="text-primary text-center"><?php echo round(($row_male['xxy_count'] / $maternal_count) * 100, 4); ?></td>
                             <td class="text-danger text-center">-</td>
                             <td class="text-danger text-center">-</td>
-                            <td class="text-secondary text-center">-</td>
+                            <td class="text-secondary text-center"><?php echo $row_male['xxy_count']; ?></td>
                             <td class="text-secondary text-center">1 : <?php echo round($maternal_count / ($row_female['xxy_count'] + $row_male['xxy_count']), 0); ?></td>
                         </tr>
                         <tr>
@@ -515,7 +523,7 @@ ORDER BY
                             <td class="text-primary text-center"><?php echo round(($row_male['xyy_count'] / $maternal_count) * 100, 4); ?></td>
                             <td class="text-danger text-center">-</td>
                             <td class="text-danger text-center">-</td>
-                            <td class="text-secondary text-center">-</td>
+                            <td class="text-secondary text-center"><?php echo $row_male['xyy_count']; ?></td>
                             <td class="text-secondary text-center">1 : <?php echo round($maternal_count / ($row_female['xyy_count'] + $row_male['xyy_count']), 0); ?></td>
                         </tr>
                     </tbody>
@@ -598,6 +606,43 @@ ORDER BY
                             <td class="text-secondary text-center"><?php echo round($twins_count / ($singleton_count + $twins_count)*100, 2); ?></td>
                             <td class="text-secondary text-center">1 : <?php echo round(($singleton_count + $twins_count) / $twins_count, 0); ?></td>
                         </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </section>
+
+
+    <section class="container mt-3">
+        <div class="row">
+            <div class="col-md-8 mx-auto">
+                <canvas id="instituteChart"></canvas>
+            </div>
+            <div class="col-md-4">
+                <p><b>Table 4. </b>Top 12 Client Hospitals DMSc-NIPT Sender</p>
+                <table class="table table-sm table-hover" style="--bs-table-bg: transparent;">
+                    <thead class="table-light">
+                        <tr>
+                            <th scope="col" class="fw-light text-center">Rank</th>
+                            <th scope="col" class="fw-light">Name</th>
+                            <th scope="col" class="fw-light text-center"><i>N</i></th>
+                            <th scope="col" class="fw-light text-center">%</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    <?php 
+                        $rank = 1; 
+                        foreach ($rows as $row): 
+                            $institute_name = $row['institute'];
+                            $count = (int)$row['institute_count'];
+                        ?>
+                        <tr>
+                            <td class="text-secondary text-center"><strong><?php echo $rank++; ?></strong></td>
+                            <td class="text-secondary"><?php echo $institute_name; ?></td>
+                            <td class="text-secondary text-center"><?php echo number_format($count); ?></td>
+                            <td class="text-secondary text-center"><?php echo round((number_format($count) / $maternal_count)*100, 2); ?></td>
+                        </tr>
+                    <?php endforeach; ?>
                     </tbody>
                 </table>
             </div>
@@ -766,7 +811,7 @@ document.addEventListener("DOMContentLoaded", function() {
                             const value = context.raw;
                             const total = context.dataset.data.reduce((a, b) => a + b, 0);
                             const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
-                            return ` ${context.label}: ${value} cases (${percentage}%)`;
+                            return ` ${context.label}: ${value} Cases (${percentage}%)`;
                         }
                     }
                 }
@@ -778,6 +823,67 @@ document.addEventListener("DOMContentLoaded", function() {
     
 </script>
 
+
+
+<script type="module">
+
+
+document.addEventListener("DOMContentLoaded", function() {
+    // 3. Inject data safely into JS using json_encode
+    const labelsData = <?php echo json_encode($institutes); ?>;
+    const valuesData = <?php echo json_encode($counts_institute); ?>;
+
+    const ctx = document.getElementById('instituteChart');
+    if (!ctx) return;
+
+    // 4. Initialize the Bar Chart
+    new Chart(ctx, {
+        type: 'bar', // Change this to 'indexAxis: "y"' inside options if you prefer horizontal bars!
+        data: {
+            labels: labelsData,
+            datasets: [{
+                label: 'Sample Count',
+                data: valuesData,
+                backgroundColor: 'rgba(255, 162, 235, 0.6)',
+                borderColor: 'rgba(255, 162, 235, 1)',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            indexAxis: 'y',
+            responsive: true,
+            plugins: {
+                title: {
+                    display: true,
+                    text: 'DMSc-NIPT Top 12 Client Hospitals by Sample Count',
+                    font: { size: 14, weight: 'bold' }
+                },
+                legend: {
+                    display: false
+                }
+            },
+            scales: {
+                x: {
+                    title: {
+                        display: true,
+                        text: 'Number of Samples',
+                    },
+                    ticks: {
+                        // Automatically rotates labels if they are too long to prevent overlapping
+                        maxRotation: 45,
+                        minRotation: 45
+                    }
+                },
+                y: {
+                    beginAtZero: false,
+                }
+            }
+        }
+    });
+});
+
+
+</script>
 
     
 </body>
