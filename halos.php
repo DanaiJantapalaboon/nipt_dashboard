@@ -178,7 +178,7 @@
                 <!-- <button type="submit" name="" class="btn btn-sm btn-gmc w-100">ค้นหา</button> -->
                 <div class="btn-group w-100" role="group" aria-label="Basic example">
                     <button type="submit" class="btn btn-sm btn-gmc w-75">Search</button>
-                    <button type="submit" class="btn btn-sm btn-dark w-25">Reset</button>
+                    <button type="submit" class="btn btn-sm btn-secondary w-25">Reset</button>
                 </div>
             </div>
         </div>
@@ -222,7 +222,7 @@
                         <div>
                             <p class="mb-0 text-secondary">Fail Rate</p>
                             <h3 class="my-1 text-danger"><?php echo $fail_count . ' ('. round(($fail_count / $sample_count) * 100, 2) .'%)'; ?></h3>
-                            <p class="mb-0 text-success"><i class="fa-solid fa-arrow-trend-up" style="color: rgb(99, 230, 190);"></i> +2.5% from last week</p>
+                            <p class="mb-0 text-danger">Most type of Fail : XX</p>
                         </div>
                         <div>
                             <img src="img/icon/close.png" style="height: 60px;" alt="">
@@ -246,9 +246,9 @@
                 <table class="table table-hover table-sm display compact small" style="--bs-table-bg: transparent;">
                     <thead class="table-light">
                         <tr>
-                            <th scope="col" class="fw-light text-center">Rank</th>
+                            <th scope="col" class="fw-light text-center">RUN</th>
                             <th scope="col" class="fw-light text-center">Samples</th>
-                            <th scope="col" class="fw-light text-center"><i>N</i></th>
+                            <th scope="col" class="fw-light text-center">Fails</th>
                             <th scope="col" class="fw-light text-center">%</th>
                         </tr>
                     </thead>

@@ -17,8 +17,8 @@
     $average_age = $stmt->fetchColumn();
 
     // Maternal Average BMI
-    $stmt = $pdo->query("SELECT AVG(BMI) FROM result_info");
-    $average_bmi = $stmt->fetchColumn();
+    $stmt = $pdo->query("SELECT institute, COUNT(institute) AS institute_count FROM mlsi_nipt.result_info GROUP BY institute ORDER BY institute_count DESC LIMIT 1");
+    $top_institute = $stmt->fetch(PDO::FETCH_ASSOC);
 
     // 1. Run one query to get both counts
     $sql = "SELECT 
@@ -46,7 +46,7 @@
                 FROM result_halos
                 WHERE OperationAdvice = 'Qualified'
                 AND Gender = 'Male'
-                AND Comment NOT IN ('Relibrary')
+                AND Comment NOT IN ('Relibrary', 'Negative')
                 AND Patient_Name NOT IN ('Positive Control', 'Negative Control')";
 
     $stmt_male = $pdo->query($sql_male);
@@ -64,7 +64,7 @@
                 FROM result_halos
                 WHERE OperationAdvice = 'Qualified'
                 AND Gender = 'Female'
-                AND Comment NOT IN ('Relibrary')
+                AND Comment NOT IN ('Relibrary', 'Negative')
                 AND Patient_Name NOT IN ('Positive Control', 'Negative Control')";
 
     $stmt_female = $pdo->query($sql_female);
@@ -374,7 +374,7 @@ foreach ($rows as $row) {
                 <!-- <button type="submit" name="" class="btn btn-sm btn-gmc w-100">ค้นหา</button> -->
                 <div class="btn-group w-100" role="group" aria-label="Basic example">
                     <button type="submit" class="btn btn-sm btn-gmc w-75">Search</button>
-                    <button type="reset" class="btn btn-sm btn-dark w-25">Reset</button>
+                    <button type="reset" class="btn btn-sm btn-secondary w-25">Reset</button>
                 </div>
             </div>
         </div>
@@ -389,7 +389,7 @@ foreach ($rows as $row) {
                         <div>
                             <p class="mb-0 text-secondary">Total Maternal Screening</p>
                             <h3 class="my-1 text-info"><?php echo $maternal_count; ?></h3>
-                            <p class="mb-0 text-success"><i class="fa-solid fa-arrow-trend-up" style="color: rgb(99, 230, 190);"></i> +2.5% from last week</p>
+                            <p class="mb-0 text-success">Average Gestation Age : 00 weeks </p>
                         </div>
                         <div>
                             <img src="img/icon/nipt.png" style="height: 60px;" alt="">
@@ -403,7 +403,7 @@ foreach ($rows as $row) {
                         <div>
                             <p class="mb-0 text-secondary">Total RUN</p>
                             <h3 class="my-1 text-info"><?php echo $run_count; ?></h3>
-                            <p class="mb-0 text-success"><i class="fa-solid fa-arrow-trend-up" style="color: rgb(99, 230, 190);"></i> +2.5% from last week</p>
+                            <p class="mb-0 text-success">Latest RUN : </p>
                         </div>
                         <div>
                             <img src="img/icon/sequencing.png" style="height: 60px;" alt="">
@@ -417,7 +417,7 @@ foreach ($rows as $row) {
                         <div>
                             <p class="mb-0 text-secondary">Maternal Average Age</p>
                             <h3 class="my-1 text-info"><?php echo round($average_age, 1); ?></h3>
-                            <p class="mb-0 text-success"><i class="fa-solid fa-arrow-trend-up" style="color: rgb(99, 230, 190);"></i> +2.5% from last week</p>
+                            <p class="mb-0 text-success">MAX : , MIN : </p>
                         </div>
                         <div>
                             <img src="img/icon/maternal.png" style="height: 60px;" alt="">
@@ -429,12 +429,12 @@ foreach ($rows as $row) {
                 <div class="card border-start border-0 border-3 border-info shadow-sm">
                     <div class="d-flex align-items-center justify-content-between p-3">
                         <div>
-                            <p class="mb-0 text-secondary">Maternal Average BMI</p>
-                            <h3 class="my-1 text-info"><?php echo round($average_bmi, 1); ?></h3>
-                            <p class="mb-0 text-success"><i class="fa-solid fa-arrow-trend-up" style="color: rgb(99, 230, 190);"></i> +2.5% from last week</p>
+                            <p class="mb-0 text-secondary">Top Samples Sender</p>
+                            <h3 class="my-1 text-info"><?php echo $top_institute['institute_count']; ?></h3>
+                            <p class="mb-0 text-success"><i class="fa-solid fa-arrow-trend-up" style="color: rgb(99, 230, 190);"></i> <?php echo $top_institute['institute']; ?></p>
                         </div>
                         <div>
-                            <img src="img/icon/obesity.png" style="height: 60px;" alt="">
+                            <img src="img/icon/hospital.png" style="height: 60px;" alt="">
                         </div>
                     </div>
                 </div>
@@ -504,7 +504,7 @@ foreach ($rows as $row) {
                             <td class="text-primary text-center">-</td>
                             <td class="text-primary text-center">-</td>
                             <td class="text-danger text-center"><?php echo $row_female['xxx_count']; ?></td>
-                            <td class="text-danger text-center"><?php echo round(($row_male['xxx_count'] / $maternal_count) * 100, 4); ?></td>
+                            <td class="text-danger text-center"><?php echo round(($row_female['xxx_count'] / $maternal_count) * 100, 4); ?></td>
                             <td class="text-secondary text-center"><?php echo $row_female['xxx_count']; ?></td>
                             <td class="text-secondary text-center">1 : <?php echo round($maternal_count / ($row_female['xxx_count'] + $row_male['xxx_count']), 0); ?></td>
                         </tr>
