@@ -1,7 +1,7 @@
 <?php
     require_once "db/conn.php";
 
-    $conn = new Connection();       // get Connection, Do Not Delete!
+    $conn = new Connection();
     $pdo = $conn->getConnection();
 
     // Total Sample Testing
@@ -32,221 +32,6 @@
     // 2. Extract counts (default to 0 if null)
     $twins_count = (int)($rows['twins'] ?? 0);
     $singleton_count = (int)($rows['singleton'] ?? 0);
-    
-
-    // --- DATASET 1: Male ---
-    $sql_male = "SELECT 
-                    COUNT(CASE WHEN `Test(chr13)` LIKE '%13' THEN 1 END) AS chr13_count,
-                    COUNT(CASE WHEN `Test(chr18)` LIKE '%18' THEN 1 END) AS chr18_count,
-                    COUNT(CASE WHEN `Test(chr21)` LIKE '%21' THEN 1 END) AS chr21_count,
-                    COUNT(CASE WHEN `Test(Sex_chr)` LIKE 'XO%' THEN 1 END) AS xo_count,
-                    COUNT(CASE WHEN `Test(Sex_chr)` LIKE 'XXX%' THEN 1 END) AS xxx_count,
-                    COUNT(CASE WHEN `Test(Sex_chr)` LIKE 'XXY%' THEN 1 END) AS xxy_count,
-                    COUNT(CASE WHEN `Test(Sex_chr)` LIKE 'XYY%' THEN 1 END) AS xyy_count
-                FROM result_halos
-                WHERE OperationAdvice = 'Qualified'
-                AND Gender = 'Male'
-                AND Comment NOT IN ('Relibrary', 'Negative')
-                AND Patient_Name NOT IN ('Positive Control', 'Negative Control')";
-
-    $stmt_male = $pdo->query($sql_male);
-    $row_male = $stmt_male->fetch(PDO::FETCH_ASSOC);
-
-    // --- DATASET 2: Female ---
-    $sql_female = "SELECT 
-                    COUNT(CASE WHEN `Test(chr13)` LIKE '%13' THEN 1 END) AS chr13_count,
-                    COUNT(CASE WHEN `Test(chr18)` LIKE '%18' THEN 1 END) AS chr18_count,
-                    COUNT(CASE WHEN `Test(chr21)` LIKE '%21' THEN 1 END) AS chr21_count,
-                    COUNT(CASE WHEN `Test(Sex_chr)` LIKE 'XO%' THEN 1 END) AS xo_count,
-                    COUNT(CASE WHEN `Test(Sex_chr)` LIKE 'XXX%' THEN 1 END) AS xxx_count,
-                    COUNT(CASE WHEN `Test(Sex_chr)` LIKE 'XXY%' THEN 1 END) AS xxy_count,
-                    COUNT(CASE WHEN `Test(Sex_chr)` LIKE 'XYY%' THEN 1 END) AS xyy_count
-                FROM result_halos
-                WHERE OperationAdvice = 'Qualified'
-                AND Gender = 'Female'
-                AND Comment NOT IN ('Relibrary', 'Negative')
-                AND Patient_Name NOT IN ('Positive Control', 'Negative Control')";
-
-    $stmt_female = $pdo->query($sql_female);
-    $row_female = $stmt_female->fetch(PDO::FETCH_ASSOC);
-
-    $male_data = [
-        (int)($row_male['chr13_count'] ?? 0),
-        (int)($row_male['chr18_count'] ?? 0),
-        (int)($row_male['chr21_count'] ?? 0),
-        (int)($row_male['xo_count'] ?? 0),
-        (int)($row_male['xxx_count'] ?? 0),
-        (int)($row_male['xxy_count'] ?? 0),
-        (int)($row_male['xyy_count'] ?? 0)
-    ];
-
-    $female_data = [
-        (int)($row_female['chr13_count'] ?? 0),
-        (int)($row_female['chr18_count'] ?? 0),
-        (int)($row_female['chr21_count'] ?? 0),
-        (int)($row_female['xo_count'] ?? 0),
-        (int)($row_female['xxx_count'] ?? 0),
-        (int)($row_female['xxy_count'] ?? 0),
-        (int)($row_female['xyy_count'] ?? 0)
-    ];
-
-    // DOB Year
-    $sql = "SELECT (2569 - DOB_Year) AS AGE, COUNT(*) AS total_count FROM result_info 
-            WHERE DOB_Year IS NOT NULL
-            GROUP BY AGE 
-            ORDER BY AGE ASC";
-
-    $stmt = $pdo->query($sql);
-    $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-    // 2. Separate into unique arrays for Chart.js labels (X-axis) and data points (Y-axis)
-    $ages = [];
-    $counts = [];
-
-    foreach ($rows as $row) {
-        $ages[] = (int)$row['AGE'];
-        $counts[] = (int)$row['total_count'];
-    }
-
-    // Age Distribution Table
-    $sql_agedist = "WITH grouped_data AS (
-    SELECT 
-        (2569 - DOB_Year) AS age,
-        CASE
-            WHEN (2569 - DOB_Year) BETWEEN 10 AND 19 THEN 'Teenage (10-19 Years)'
-            WHEN (2569 - DOB_Year) BETWEEN 20 AND 35 THEN 'Biological Peak (20-35 Years)'
-            WHEN (2569 - DOB_Year) BETWEEN 36 AND 44 THEN 'Advanced Maternal Age (AMA) (36-44 Years)'
-            WHEN (2569 - DOB_Year) >= 45 THEN 'Very Advanced Maternal Age (VAMA) (45+ Years)'
-        END AS age_group
-    FROM result_info
-    WHERE DOB_Year IS NOT NULL
-),
-
-ranked_data AS (
-    SELECT 
-        age,
-        age_group,
-        ROW_NUMBER() OVER (PARTITION BY age_group ORDER BY age) AS rn,
-        COUNT(*) OVER (PARTITION BY age_group) AS total_rows
-    FROM grouped_data
-),
-
-group_stats AS (
-    SELECT 
-        age_group,
-        COUNT(*) AS total_count,
-
-        ROUND(
-            (COUNT(*) * 100.0) / (SELECT COUNT(*) FROM grouped_data),
-        2) AS percent_total,
-
-        ROUND(AVG(age), 2) AS mean_age,
-
-        ROUND(
-            AVG(
-                CASE 
-                    WHEN rn IN (
-                        FLOOR((total_rows + 1) / 2),
-                        FLOOR((total_rows + 2) / 2)
-                    )
-                    THEN age
-                END
-            ),
-        2) AS median_age
-
-    FROM ranked_data
-    GROUP BY age_group
-)
-
-SELECT 
-    gs.age_group,
-    gs.total_count,
-    CONCAT(gs.percent_total, '%') AS percent_total,
-    gs.mean_age,
-    gs.median_age,
-
-    (
-        SELECT age
-        FROM grouped_data gd2
-        WHERE gd2.age_group = gs.age_group
-        GROUP BY age
-        ORDER BY COUNT(*) DESC, age
-        LIMIT 1
-    ) AS mode_age
-
-FROM group_stats gs
-
-UNION ALL
-
-SELECT
-    'Total' AS age_group,
-    COUNT(*) AS total_count,
-    '100%' AS percent_total,
-
-    ROUND(AVG(age), 2) AS mean_age,
-
-    ROUND(
-        AVG(
-            CASE 
-                WHEN rn IN (
-                    FLOOR((total_rows + 1) / 2),
-                    FLOOR((total_rows + 2) / 2)
-                )
-                THEN age
-            END
-        ),
-    2) AS median_age,
-
-    (
-        SELECT age
-        FROM grouped_data
-        GROUP BY age
-        ORDER BY COUNT(*) DESC, age
-        LIMIT 1
-    ) AS mode_age
-
-FROM (
-    SELECT 
-        age,
-        ROW_NUMBER() OVER (ORDER BY age) AS rn,
-        COUNT(*) OVER () AS total_rows
-    FROM grouped_data
-) total_calc
-
-ORDER BY 
-    CASE age_group
-        WHEN 'Teenage (10-19 Years)' THEN 1
-        WHEN 'Biological Peak (20-35 Years)' THEN 2
-        WHEN 'Advanced Maternal Age (AMA) (36-44 Years)' THEN 3
-        WHEN 'Very Advanced Maternal Age (VAMA) (45+ Years)' THEN 4
-        WHEN 'Total' THEN 5
-    END";
-
-    $stmt_agedist = $pdo->query($sql_agedist);
-    $row_age = $stmt_agedist->fetch(PDO::FETCH_ASSOC);
-
-
-
-
-// 1. Fetch the top 15 institutes sorted by count
-$sql_institute = "SELECT institute, COUNT(institute) AS institute_count 
-        FROM mlsi_nipt.result_info 
-        GROUP BY institute 
-        ORDER BY institute_count DESC 
-        LIMIT 12";
-
-$stmt = $pdo->query($sql_institute);
-$rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-// 2. Separate into unique arrays for Chart.js labels and data values
-$institutes = [];
-$counts_institute = [];
-
-foreach ($rows as $row) {
-    // Fallback to 'Unknown' if the institute field happens to be blank/null
-    $institutes[] = $row['institute'] ?? 'Unknown';
-    $counts_institute[] = (int)($row['institute_count'] ?? 0);
-}
 
 
 ?>
@@ -443,138 +228,11 @@ foreach ($rows as $row) {
     </section>
 
 
-    <section class="container mt-3">
-        <div class="row">
-            <div class="col-md-6">
-                <canvas id="chromosomeChart"></canvas>
-            </div>
-            <div class="col-md-6">
-                <p><b>Table 1. </b>Chromosome Abnormaly Incident Rate</p>
-                <table class="table table-sm table-hover" style="--bs-table-bg: transparent;">
-                    <thead class="table-light">
-                        <tr>
-                            <th scope="col" class="fw-light">Chromosome Tests</th>
-                            <th scope="col" class="fw-light text-center">Male</th>
-                            <th scope="col" class="fw-light text-center">%</th>
-                            <th scope="col" class="fw-light text-center">Female</th>
-                            <th scope="col" class="fw-light text-center">%</th>
-                            <th scope="col" class="fw-light text-center"><i>N</i></th>
-                            <th scope="col" class="fw-light text-center">Ratio</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td class="text-secondary">Trisomy 13 (Patau Syndrome)</td>
-                            <td class="text-primary text-center"><?php echo $row_male['chr13_count']; ?></td>
-                            <td class="text-primary text-center"><?php echo round(($row_male['chr13_count'] / $maternal_count) * 100, 4); ?></td>
-                            <td class="text-danger text-center"><?php echo $row_female['chr13_count']; ?></td>
-                            <td class="text-danger text-center"><?php echo round(($row_female['chr13_count'] / $maternal_count) * 100, 4); ?></td>
-                            <td class="text-secondary text-center"><?php echo $row_female['chr13_count'] + $row_male['chr13_count']; ?></td>
-                            <td class="text-secondary text-center">1 : <?php echo round($maternal_count / ($row_female['chr13_count'] + $row_male['chr13_count']), 0); ?></td>
-                        </tr>
-                        <tr>
-                            <td class="text-secondary">Trisomy 18 (Edwards Syndrome)</td>
-                            <td class="text-primary text-center"><?php echo $row_male['chr18_count']; ?></td>
-                            <td class="text-primary text-center"><?php echo round(($row_male['chr18_count'] / $maternal_count) * 100, 4); ?></td>
-                            <td class="text-danger text-center"><?php echo $row_female['chr18_count']; ?></td>
-                            <td class="text-danger text-center"><?php echo round(($row_female['chr18_count'] / $maternal_count) * 100, 4); ?></td>
-                            <td class="text-secondary text-center"><?php echo $row_female['chr18_count'] + $row_male['chr18_count']; ?></td>
-                            <td class="text-secondary text-center">1 : <?php echo round($maternal_count / ($row_female['chr18_count'] + $row_male['chr18_count']), 0); ?></td>
-                        </tr>
-                        <tr>
-                            <td class="text-secondary">Trisomy 21 (Down Syndrome)</td>
-                            <td class="text-primary text-center"><?php echo $row_male['chr21_count']; ?></td>
-                            <td class="text-primary text-center"><?php echo round(($row_male['chr21_count'] / $maternal_count) * 100, 4); ?></td>
-                            <td class="text-danger text-center"><?php echo $row_female['chr21_count']; ?></td>
-                            <td class="text-danger text-center"><?php echo round(($row_female['chr21_count'] / $maternal_count) * 100, 4); ?></td>
-                            <td class="text-secondary text-center"><?php echo $row_female['chr21_count'] + $row_male['chr21_count']; ?></td>
-                            <td class="text-secondary text-center">1 : <?php echo round($maternal_count / ($row_female['chr21_count'] + $row_male['chr21_count']), 0); ?></td>
-                        </tr>
-                        <tr>
-                            <td class="text-secondary">XO (Turner Syndrome)</td>
-                            <td class="text-primary text-center">-</td>
-                            <td class="text-primary text-center">-</td>
-                            <td class="text-danger text-center"><?php echo $row_female['xo_count']; ?></td>
-                            <td class="text-danger text-center"><?php echo round(($row_female['xo_count'] / $maternal_count) * 100, 4); ?></td>
-                            <td class="text-secondary text-center"><?php echo $row_female['xo_count']; ?></td>
-                            <td class="text-secondary text-center">1 : <?php echo round($maternal_count / ($row_female['xo_count'] + $row_male['xo_count']), 0); ?></td>
-                        </tr>
-                        <tr>
-                            <td class="text-secondary">XXX (Triple X Syndrome)</td>
-                            <td class="text-primary text-center">-</td>
-                            <td class="text-primary text-center">-</td>
-                            <td class="text-danger text-center"><?php echo $row_female['xxx_count']; ?></td>
-                            <td class="text-danger text-center"><?php echo round(($row_female['xxx_count'] / $maternal_count) * 100, 4); ?></td>
-                            <td class="text-secondary text-center"><?php echo $row_female['xxx_count']; ?></td>
-                            <td class="text-secondary text-center">1 : <?php echo round($maternal_count / ($row_female['xxx_count'] + $row_male['xxx_count']), 0); ?></td>
-                        </tr>
-                        <tr>
-                            <td class="text-secondary">XXY (Klinefelter Syndrome)</td>
-                            <td class="text-primary text-center"><?php echo $row_male['xxy_count']; ?></td>
-                            <td class="text-primary text-center"><?php echo round(($row_male['xxy_count'] / $maternal_count) * 100, 4); ?></td>
-                            <td class="text-danger text-center">-</td>
-                            <td class="text-danger text-center">-</td>
-                            <td class="text-secondary text-center"><?php echo $row_male['xxy_count']; ?></td>
-                            <td class="text-secondary text-center">1 : <?php echo round($maternal_count / ($row_female['xxy_count'] + $row_male['xxy_count']), 0); ?></td>
-                        </tr>
-                        <tr>
-                            <td class="text-secondary">XYY (Jacobs syndrome)</td>
-                            <td class="text-primary text-center"><?php echo $row_male['xyy_count']; ?></td>
-                            <td class="text-primary text-center"><?php echo round(($row_male['xyy_count'] / $maternal_count) * 100, 4); ?></td>
-                            <td class="text-danger text-center">-</td>
-                            <td class="text-danger text-center">-</td>
-                            <td class="text-secondary text-center"><?php echo $row_male['xyy_count']; ?></td>
-                            <td class="text-secondary text-center">1 : <?php echo round($maternal_count / ($row_female['xyy_count'] + $row_male['xyy_count']), 0); ?></td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </section>
+    <?php include_once 'db/query_nipt_highrisk.php'; ?>
+    <?php include_once 'db/query_nipt_agedist.php'; ?>
 
 
-    <section class="container mt-3">
-        <div class="row">
-            <div class="col-md-6">
-                <canvas id="ageDistributionChart"></canvas>
-            </div>
-            <div class="col-md-6">
-                <p><b>Table 2. </b>Maternal Age Distribution</p>
-                <table class="table table-sm table-hover" style="--bs-table-bg: transparent;">
-                    <thead class="table-light">
-                        <tr>
-                            <th scope="col" class="fw-light">Age Groups</th>
-                            <th scope="col" class="fw-light text-center"><i>N</i></th>
-                            <th scope="col" class="fw-light text-center">%</th>
-                            <th scope="col" class="fw-light text-center">Mean</th>
-                            <th scope="col" class="fw-light text-center">Median</th>
-                            <th scope="col" class="fw-light text-center">Mode</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                            <td class="text-secondary"><?php echo $row_age['age_group']; ?></td>
-                            <td class="text-secondary text-center"><?php echo $row_age['total_count']; ?></td>
-                            <td class="text-secondary text-center"><?php echo $row_age['percent_total']; ?></td>
-                            <td class="text-secondary text-center"><?php echo $row_age['mean_age']; ?></td>
-                            <td class="text-secondary text-center"><?php echo $row_age['median_age']; ?></td>
-                            <td class="text-secondary text-center"><?php echo $row_age['mode_age']; ?></td>
-                        <?php
-                            while ($row_age = $stmt_agedist->fetch(PDO::FETCH_ASSOC)) {
-                                echo "<tr>";
-                                echo "<td class='text-secondary'>{$row_age['age_group']}</td>";
-                                echo "<td class='text-secondary text-center'>{$row_age['total_count']}</td>";
-                                echo "<td class='text-secondary text-center'>{$row_age['percent_total']}</td>";
-                                echo "<td class='text-secondary text-center'>{$row_age['mean_age']}</td>";
-                                echo "<td class='text-secondary text-center'>{$row_age['median_age']}</td>";
-                                echo "<td class='text-secondary text-center'>{$row_age['mode_age']}</td>";
-                                echo "</tr>";
-                            }
-                        ?>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </section>
+
 
 
     <section class="container mt-3">
@@ -613,157 +271,108 @@ foreach ($rows as $row) {
     </section>
 
 
-    <section class="container mt-3">
-        <div class="row">
-            <div class="col-md-8 mx-auto">
-                <canvas id="instituteChart"></canvas>
+
+    <?php include_once 'db/query_nipt_institute.php'; ?>
+
+
+
+
+    <style>
+.footer {
+    background: var(--gmc-darker-color);
+    padding: 40px 0 20px;
+    border-top: 1px solid #eee;
+}
+
+.footer-brand {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 15px;
+}
+
+.footer-text {
+    color: #6c757d;
+    font-size: 0.9rem;
+}
+
+.social-links {
+    margin: 20px 0;
+}
+
+.social-link {
+    color: #6c757d;
+    margin-right: 20px;
+    font-size: 1.2rem;
+    transition: color 0.3s ease;
+}
+
+.social-link:hover {
+    color: #0d6efd;
+}
+
+.footer-links {
+    display: flex;
+    justify-content: end;
+    gap: 20px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.footer-links a {
+    color: #6c757d;
+    text-decoration: none;
+    font-size: 0.9rem;
+    transition: color 0.3s ease;
+}
+
+.footer-links a:hover {
+    color: #0d6efd;
+}
+
+.copyright {
+    color: #6c757d;
+    font-size: 0.85rem;
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid #eee;
+}
+</style>
+
+<footer class="footer">
+    <div class="container">
+        <div class="row align-items-center">
+            <div class="col-md-6">
+                <div class="footer-brand text-white">Genomics Medicine Center, Medical Life Science Institute</div>
+                <p class="footer-text text-white">ศูนย์การแพทย์จีโนมิกส์ สถาบันชีววิทยาศาสตร์ทางการแพทย์ เป็นหน่วยบริการด้านการตรวจวิเคราะห์ทางจีโนมิกส์ด้วยเทคโนโลยีขั้นสูง มีการศึกษาวิจัยเพื่อพัฒนางานด้าน Precision Medicine ด้านเภสัชพันธุศาสตร์ (Pharmacogenomics) โรคมะเร็ง โรคหายาก ที่เกี่ยวข้องกับพันธุกรรม จัดทำ National Genome Database และเป็นศูนย์ทรัพยากรชีวภาพที่ได้มาตรฐาน ISO 20387 ของกรมวิทยาศาสตร์การแพทย์</p>
+                <div class="social-links">
+                    <a href="#" class="social-link"><i class="fa-brands fa-facebook"></i></a>
+                    <a href="#" class="social-link"><i class="fa-solid fa-envelope"></i></a>
+                    <a href="#" class="social-link"><i class="fa-solid fa-globe"></i></a>
+                </div>
             </div>
-            <div class="col-md-4">
-                <p><b>Table 4. </b>Top 12 Client Hospitals DMSc-NIPT Sender</p>
-                <table class="table table-sm table-hover" style="--bs-table-bg: transparent;">
-                    <thead class="table-light">
-                        <tr>
-                            <th scope="col" class="fw-light text-center">Rank</th>
-                            <th scope="col" class="fw-light">Name</th>
-                            <th scope="col" class="fw-light text-center"><i>N</i></th>
-                            <th scope="col" class="fw-light text-center">%</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                    <?php 
-                        $rank = 1; 
-                        foreach ($rows as $row): 
-                            $institute_name = $row['institute'];
-                            $count = (int)$row['institute_count'];
-                        ?>
-                        <tr>
-                            <td class="text-secondary text-center"><strong><?php echo $rank++; ?></strong></td>
-                            <td class="text-secondary"><?php echo $institute_name; ?></td>
-                            <td class="text-secondary text-center"><?php echo number_format($count); ?></td>
-                            <td class="text-secondary text-center"><?php echo round((number_format($count) / $maternal_count)*100, 2); ?></td>
-                        </tr>
-                    <?php endforeach; ?>
-                    </tbody>
-                </table>
+            <div class="col-md-6">
+                <ul class="footer-links">
+                    <li><a href="#">Home</a></li>
+                    <li><a href="#">Platform Performance</a></li>
+                    <li><a href="#">About</a></li>
+                </ul>
             </div>
         </div>
-    </section>
+        <div class="copyright text-center">
+            © 2026 Genomics Medicine Center, Medical Life Science Institute. All rights reserved.
+        </div>
+    </div>
+</footer>
 
 
 
 
 
-<script type="module">
-document.addEventListener("DOMContentLoaded", function() {
-    const maleDataset = <?php echo json_encode($male_data); ?>;
-    const femaleDataset = <?php echo json_encode($female_data); ?>;
-
-    const ctx = document.getElementById('chromosomeChart');
-    if (!ctx) return;
-
-    new Chart(ctx, {
-        type: 'bar',
-        data: {
-            labels: ['Chr 13', 'Chr 18', 'Chr 21', 'XO', 'XXX', 'XXY', 'XYY'],
-            datasets: [
-                {
-                    label: 'Male',
-                    data: maleDataset,
-                    backgroundColor: 'rgba(54, 162, 235, 0.7)',
-                    borderColor: 'rgba(54, 162, 235, 1)',
-                    borderWidth: 1
-                },
-                {
-                    label: 'Female',
-                    data: femaleDataset,
-                    backgroundColor: 'rgba(255, 99, 132, 0.7)',
-                    borderColor: 'rgba(255, 99, 132, 1)',
-                    borderWidth: 1
-                }
-            ]
-        },
-        options: {
-            responsive: true,
-            plugins: {
-                legend: {
-                    position: 'top',
-                },
-                title: {
-                    display: true,
-                    text: 'DMSc-NIPT High Risk Screening Grouped by Fetal Gender',
-                    font: { size: 14, weight: 'bold' }
-                }
-            },
-            scales: {
-                y: {
-                    beginAtZero: true,
-                    min: 0,
-                    max: 100,
-                    title: {
-                        display: true,
-                        text: 'Case Counts'
-                    }
-                }
-            }
-        }
-    });
-});
-</script>
-
-<script type="module">
 
 
-document.addEventListener("DOMContentLoaded", function() {
-    const ageLabels = <?php echo json_encode($ages); ?>;
-    const distributionData = <?php echo json_encode($counts); ?>;
 
-    const ctx = document.getElementById('ageDistributionChart');
-    if (!ctx) return;
-
-    new Chart(ctx, {
-        type: 'bar', 
-        data: {
-            labels: ageLabels,
-            datasets: [{
-                label: 'Maternal Counts',
-                data: distributionData,
-                backgroundColor: 'rgba(75, 192, 192, 0.6)',
-                borderColor: 'rgba(75, 192, 192, 1)',
-                borderWidth: 1,
-                barPercentage: 0.9,  // Slightly widens bars to resemble a classic histogram
-                categoryPercentage: 1.0
-            }]
-        },
-        options: {
-            responsive: true,
-            plugins: {
-                title: {
-                    display: true,
-                    text: 'DMSc-NIPT Maternal Age Distribution',
-                    font: { size: 14, weight: 'bold' }
-                },
-                legend: { display: false } // Hide legend since it's a single tracking dataset
-            },
-            scales: {
-                x: {
-                    title: {
-                        display: true,
-                        text: 'Age (Years Old)'
-                    }
-                },
-                y: {
-                    beginAtZero: true,
-                    title: {
-                        display: true,
-                        text: 'Maternal Counts'
-                    }
-                }
-            }
-        }
-    });
-});
-
-</script>
 
 
 
@@ -825,65 +434,7 @@ document.addEventListener("DOMContentLoaded", function() {
 
 
 
-<script type="module">
 
-
-document.addEventListener("DOMContentLoaded", function() {
-    // 3. Inject data safely into JS using json_encode
-    const labelsData = <?php echo json_encode($institutes); ?>;
-    const valuesData = <?php echo json_encode($counts_institute); ?>;
-
-    const ctx = document.getElementById('instituteChart');
-    if (!ctx) return;
-
-    // 4. Initialize the Bar Chart
-    new Chart(ctx, {
-        type: 'bar', // Change this to 'indexAxis: "y"' inside options if you prefer horizontal bars!
-        data: {
-            labels: labelsData,
-            datasets: [{
-                label: 'Sample Count',
-                data: valuesData,
-                backgroundColor: 'rgba(255, 162, 235, 0.6)',
-                borderColor: 'rgba(255, 162, 235, 1)',
-                borderWidth: 1
-            }]
-        },
-        options: {
-            indexAxis: 'y',
-            responsive: true,
-            plugins: {
-                title: {
-                    display: true,
-                    text: 'DMSc-NIPT Top 12 Client Hospitals by Sample Count',
-                    font: { size: 14, weight: 'bold' }
-                },
-                legend: {
-                    display: false
-                }
-            },
-            scales: {
-                x: {
-                    title: {
-                        display: true,
-                        text: 'Number of Samples',
-                    },
-                    ticks: {
-                        // Automatically rotates labels if they are too long to prevent overlapping
-                        maxRotation: 45,
-                        minRotation: 45
-                    }
-                },
-                y: {
-                    beginAtZero: false,
-                }
-            }
-        }
-    });
-});
-
-
-</script>
 
     
 </body>

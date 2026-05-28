@@ -1,7 +1,7 @@
 <?php
     require_once "db/conn.php";
 
-    $conn = new Connection();       // get Connection, Do Not Delete!
+    $conn = new Connection();
     $pdo = $conn->getConnection();
 
     // Total RUN
@@ -15,33 +15,6 @@
     // Total Sample
     $stmt = $pdo->query("SELECT COUNT(Sample_QC) FROM mlsi_nipt.result_halos WHERE Sample_QC = 'Fail' AND Patient_Name NOT IN ('Positive Control', 'Negative Control')");
     $fail_count = $stmt->fetchColumn();
-
-
-
-    $sql_fail = "SELECT 
-                RUN,
-                COUNT(*) AS total_samples,
-                SUM(CASE WHEN Sample_QC = 'Fail' THEN 1 ELSE 0 END) AS fail_count,
-                ROUND(
-                    (SUM(CASE WHEN Sample_QC = 'Fail' THEN 1 ELSE 0 END) / COUNT(*)) * 100,
-                    2
-                ) AS fail_percent
-            FROM mlsi_nipt.result_halos
-            GROUP BY RUN
-            ORDER BY RUN ASC"; // Ordered chronologically/sequentially for a smooth line flow
-
-    $stmt = $pdo->query($sql_fail);
-    $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-    // 2. Prepare arrays for the Line Chart
-    $run_labels = [];
-    $fail_counts = [];
-
-    foreach ($rows as $row) {
-        $run_labels[] = $row['RUN'];
-        $fail_counts[] = (int)($row['fail_count'] ?? 0);
-    }
-
 
 ?>
 
@@ -236,186 +209,68 @@
 
 
 
-    <section class="container mt-3">
-        <div class="row">
-            <div class="col-md-9 mx-auto">
-                <canvas id="runFailureChart"></canvas>
-            </div>
-            <div class="col-md-3">
-                <p><b>Table 1. </b>Fail Rate per RUN</p>
-                <table class="table table-hover table-sm display compact small" style="--bs-table-bg: transparent;">
-                    <thead class="table-light">
-                        <tr>
-                            <th scope="col" class="fw-light text-center">RUN</th>
-                            <th scope="col" class="fw-light text-center">Samples</th>
-                            <th scope="col" class="fw-light text-center">Fails</th>
-                            <th scope="col" class="fw-light text-center">%</th>
-                        </tr>
-                    </thead>
-                    <tbody>
+    <?php include_once 'db/query_nipt_failrate.php'; ?>
+
+
+
+
+
+
+
+    <section class="container bg-white shadow-sm rounded">
+        <div class="table-responsive py-2">
+            <table class="table table-hover table-striped display compact small" id="myTable2">
+                <thead>
+                    <tr>
+                        <th class="fw-light text-center" scope="col">RUN</th>
+                        <th class="fw-light" scope="col">Sample No.</th>
+                        <th class="fw-light" scope="col">Sample QC.</th>
+                        <th class="fw-light" scope="col">Fail Type</th>
+                        <th class="fw-light" scope="col">Operation Advice</th>
+                        <th class="fw-light" scope="col">CHR_13</th>
+                        <th class="fw-light" scope="col">CHR_18</th>
+                        <th class="fw-light" scope="col">CHR_21</th>
+                        <th class="fw-light" scope="col">Sex_CHR</th>
+                        <th class="fw-light" scope="col">Comment</th>
+                        <th class="fw-light" scope="col">Fetal Fraction</th>
+                        <th class="fw-light" scope="col">Gender</th>
+                    </tr>
+                </thead>
+                <tbody class="table-group-divider">
                     <?php
-                        $limit = 15;
-                        $counter = 0;
-                        foreach (array_reverse($rows) as $row): 
-                            if ($counter >= $limit) {
-                                break;
-                            }
-                            $run = $row['RUN'];
-                            $total = (int)$row['total_samples'];
-                            $fail = (int)$row['fail_count'];
-                            $percent = (float)$row['fail_percent'];
-                            $counter++;
+                        $stmt = $pdo->query("SELECT RUN, Sample_No, Sample_QC, Reason_for_quality_control_failure, OperationAdvice,
+                                                    `Test(chr13)`, `Test(chr18)`, `Test(chr21)`, `Test(Sex_chr)`, Comment,
+                                                    `Fetal_Fract_(%)`, Gender
+                                            FROM result_halos WHERE Patient_Name NOT IN ('Positive Control', 'Negative Control')");
+                        $halos = $stmt->fetchAll();
+
+                        if (!$halos) {
+                            echo "<p><td colspan='10' class='text-center'>ไม่พบข้อมูล</td></p>";
+                        } else {
+                            foreach ($halos as $halo) {
                     ?>
                     <tr>
-                        <td class="text-secondary text-center"><?php echo $run; ?></td>
-                        <td class="text-secondary text-center"><?php echo number_format($total); ?></td>
-                        <td class="text-secondary text-center"><?php echo number_format($fail); ?></td>
-                        <td class="text-secondary text-center text-danger"><?php echo number_format($percent, 2); ?> %</td>
+                        <td><?php echo $halo['RUN']; ?></td>
+                        <td><?php echo $halo['Sample_No']; ?></td>
+                        <td><?php echo $halo['Sample_QC']; ?></td>
+                        <td><?php echo $halo['Reason_for_quality_control_failure']; ?></td>
+                        <td><?php echo $halo['OperationAdvice']; ?></td>
+                        <td><?php echo $halo['Test(chr13)']; ?></td>
+                        <td><?php echo $halo['Test(chr18)']; ?></td>
+                        <td><?php echo $halo['Test(chr21)']; ?></td>
+                        <td><?php echo $halo['Test(Sex_chr)']; ?></td>
+                        <td><?php echo $halo['Comment']; ?></td>
+                        <td><?php echo $halo['Fetal_Fract_(%)']; ?></td>
+                        <td><?php echo $halo['Gender']; ?></td>
                     </tr>
-                    <?php endforeach; ?>
-                    </tbody>
-                </table>
-            </div>
+                    <?php } } ?>
+                </tbody>
+            </table>
         </div>
     </section>
 
 
 
-
-
-
-
-<section class="container bg-white shadow-sm rounded">
-    <div class="table-responsive py-2">
-        <table class="table table-hover table-striped display compact small" id="myTable2">
-            <thead>
-                <tr>
-                    <th class="fw-light text-center" scope="col">RUN</th>
-                    <th class="fw-light" scope="col">Sample No.</th>
-                    <th class="fw-light" scope="col">Sample QC.</th>
-                    <th class="fw-light" scope="col">Fail Type</th>
-                    <th class="fw-light" scope="col">Operation Advice</th>
-                    <th class="fw-light" scope="col">CHR_13</th>
-                    <th class="fw-light" scope="col">CHR_18</th>
-                    <th class="fw-light" scope="col">CHR_21</th>
-                    <th class="fw-light" scope="col">Sex_CHR</th>
-                    <th class="fw-light" scope="col">Comment</th>
-                    <th class="fw-light" scope="col">Fetal Fraction</th>
-                    <th class="fw-light" scope="col">Gender</th>
-                </tr>
-            </thead>
-            <tbody class="table-group-divider">
-                <?php
-                    $stmt = $pdo->query("SELECT RUN, Sample_No, Sample_QC, Reason_for_quality_control_failure, OperationAdvice,
-                                                `Test(chr13)`, `Test(chr18)`, `Test(chr21)`, `Test(Sex_chr)`, Comment,
-                                                `Fetal_Fract_(%)`, Gender
-                                        FROM result_halos WHERE Patient_Name NOT IN ('Positive Control', 'Negative Control')");
-                    $halos = $stmt->fetchAll();
-
-                    if (!$halos) {
-                        echo "<p><td colspan='10' class='text-center'>ไม่พบข้อมูล</td></p>";
-                    } else {
-                        foreach ($halos as $halo) {
-                ?>
-                <tr>
-                    <td><?php echo $halo['RUN']; ?></td>
-                    <td><?php echo $halo['Sample_No']; ?></td>
-                    <td><?php echo $halo['Sample_QC']; ?></td>
-                    <td><?php echo $halo['Reason_for_quality_control_failure']; ?></td>
-                    <td><?php echo $halo['OperationAdvice']; ?></td>
-                    <td><?php echo $halo['Test(chr13)']; ?></td>
-                    <td><?php echo $halo['Test(chr18)']; ?></td>
-                    <td><?php echo $halo['Test(chr21)']; ?></td>
-                    <td><?php echo $halo['Test(Sex_chr)']; ?></td>
-                    <td><?php echo $halo['Comment']; ?></td>
-                    <td><?php echo $halo['Fetal_Fract_(%)']; ?></td>
-                    <td><?php echo $halo['Gender']; ?></td>
-                </tr>
-                <?php } } ?>
-            </tbody>
-        </table>
-    </div>
-
-</section>
-
-
-<script>
-    var table2 = $('#myTable2').DataTable({
-                    'paging': true,
-                    pageLength: 100
-                });
-
-    var length = table2.rows().count();;
-    document.getElementById("rowcount").innerHTML = '(' + length + ' Items)';
-</script>
-
-
-<script type="module">
-
-
-document.addEventListener("DOMContentLoaded", function() {
-    // 3. Extract mapped database metrics safely via json_encode
-    const chartLabels = <?php echo json_encode($run_labels); ?>;
-    const chartDataValues = <?php echo json_encode($fail_counts); ?>;
-
-    const ctx = document.getElementById('runFailureChart');
-    if (!ctx) return;
-
-    // 4. Initialize Line Chart
-    new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels: chartLabels,
-            datasets: [{
-                label: 'Fail Count',
-                data: chartDataValues,
-                backgroundColor: 'rgba(255, 99, 132, 0.2)',
-                borderColor: 'rgba(255, 99, 132, 1)',
-                borderWidth: 2,
-                tension: 0.2,
-                pointBackgroundColor: 'rgba(255, 99, 132, 1)',
-                pointRadius: 3,
-                pointHoverRadius: 5,
-                fill: true
-            }]
-        },
-        options: {
-            responsive: true,
-            plugins: {
-                title: {
-                    display: true,
-                    text: 'DMSc-NIPT Sequencing Run Quality Tracking (Sample Failures)',
-                    font: { size: 14, weight: 'bold' }
-                },
-                legend: {
-                    display: false
-                }
-            },
-            scales: {
-                x: {
-                    title: {
-                        display: true,
-                        text: 'RUN Identifier'
-                    }
-                },
-                y: {
-                    beginAtZero: true,
-                    max: 40,
-                    title: {
-                        display: true,
-                        text: 'Number of Failed Samples'
-                    },
-                    ticks: {
-                        stepSize: 1 // Forces clean whole integer intervals on case volumes
-                    }
-                }
-            }
-        }
-    });
-});
-
-
-</script>
 
 
 
